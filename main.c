@@ -1,52 +1,70 @@
 #include "shell.h"
 
 /**
- * main - Entry point for the program.
- * @ac: Argument count.
- * @av: Argument vector.
  *
- * Return: 0 on success, 1 on error.
+ * 
+ * 
  */
-int main(int ac, char **av) {
-    // Initialize info structure with default values
-    info_t info[] = { INFO_INIT };
-    // Set default file descriptor value to 2
-    int fd = 2;
+void free_data(data_shell *datash)
+{
+	unsigned int i;
 
-    // Inline assembly to perform specific operations on the file descriptor
-    asm ("mov %1, %0\n\t"
-        "add $3, %0"
-        : "=r" (fd)
-        : "r" (fd));
+	for (i = 0; datash->_environ[i]; i++)
+	{
+		free(datash->_environ[i]);
+	}
 
-    // Check if there is exactly one command-line argument
-    if (ac == 2) {
-        // Attempt to open the specified file in read-only mode
-        fd = open(av[1], O_RDONLY);
-        if (fd == -1) {
-            // Handle file opening errors
-            if (errno == EACCES)
-                exit(126);
-            if (errno == ENOENT) {
-                _eputs(av[0]);
-                _eputs(": 0: Can't open ");
-                _eputs(av[1]);
-                _eputchar('\n');
-                _eputchar(BUF_FLUSH);
-                exit(127);
-            }
-            return (EXIT_FAILURE);
-        }
-        // Update the read file descriptor in the info structure
-        info->readfd = fd;
-    }
+	free(datash->_environ);
+	free(datash->pid);
+}
 
-    // Populate environment list, read history, and execute the shell
-    populate_env_list(info);
-    read_history(info);
-    hsh(info, av);
+/**
+ * set_data - 
+ * @datash: 
+ * @av: 
+ * Return: 
+ */
+void set_data(data_shell *datash, char **av)
+{
+	unsigned int i;
 
-    // Return success status
-    return (EXIT_SUCCESS);
+	datash->av = av;
+	datash->input = NULL;
+	datash->args = NULL;
+	datash->status = 0;
+	datash->counter = 1;
+
+	for (i = 0; environ[i]; i++)
+		;
+
+	datash->_environ = malloc(sizeof(char *) * (i + 1));
+
+	for (i = 0; environ[i]; i++)
+	{
+		datash->_environ[i] = _strdup(environ[i]);
+	}
+
+	datash->_environ[i] = NULL;
+	datash->pid = aux_itoa(getpid());
+}
+
+/**
+ * main - 
+ * @ac: 
+ * @av: 
+ * Return:
+ */
+int main(int ac, char **av)
+{
+	data_shell datash;
+	(void) ac;
+
+	signal(SIGINT, get_sigint);
+	set_data(&datash, av);
+	shell_loop(&datash);
+	free_data(&datash);
+	if (datash.status < 0)
+		return (255);
+	return (datash.status);
 }
 
